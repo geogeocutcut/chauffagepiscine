@@ -32,7 +32,7 @@ uint32_t TEMPO_TIME = 10000;
 #include <DallasTemperature.h> //Librairie du capteur
 
 Bounce button = Bounce();
-int oldValue=0;
+int previousButtonState=0;
 bool state;
 
 float Temp_tmp=0 ;               // 7 création d'une variable temporaire de la températude du ballon d'eau chaude
@@ -88,11 +88,11 @@ void loop()
     
     button.update();
     // Get the update value
-    int value = button.read();
-    if (value != oldValue && value==0) {
+    int currentButtonState = button.read();
+    if (currentButtonState != previousButtonState) {
         send(msgRelay.set(state?false:true), true); // Send new state and request ack back
     }
-    oldValue = value;
+    previousButtonState = currentButtonState;
 
     sensors.requestTemperatures(); //Demande la température aux capteurs
     Temp_tmp=sensor.getTempCByIndex(0);             // 7 Récupération de la température en celsius à l'index 0
@@ -107,7 +107,7 @@ void loop()
     }
     
 
-    if(oldValue==HIGH)
+    if(currentButtonState==HIGH)
     {
         if(state==false && Temp_good>=50)
         {
