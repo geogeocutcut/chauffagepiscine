@@ -8,10 +8,8 @@
 #define MY_RF24_PA_LEVEL RF24_PA_MAX
 
 #define SKETCH_NAME "Pool Heater"
-#define SKETCH_MAJOR_VER "4"
+#define SKETCH_MAJOR_VER "1"
 #define SKETCH_MINOR_VER "0"
-
-#define RELAY_ID 2   // Id of the sensor child
 
 #define MY_NODE_ID 5
 
