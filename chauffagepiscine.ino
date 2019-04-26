@@ -26,14 +26,12 @@ uint32_t TEMPO_TIME = 10000;
 
 
 #include <MySensors.h>
-#include <Bounce2.h>
 
 #include <OneWire.h> //Librairie du bus OneWire
 #include <DallasTemperature.h> //Librairie du capteur
 
-Bounce button = Bounce();
-int previousButtonState=0;
-bool state;
+bool buttonState = false;
+bool relayState;
 
 float Temp_tmp=0 ;               // 7 création d'une variable temporaire de la températude du ballon d'eau chaude
 float Temp_good = 0;      // 7 variable flotante pour récupérer la température 
@@ -52,18 +50,14 @@ void setup()
     // Setup the button
     pinMode(BUTTON_PIN,INPUT_PULLUP);
 
-    // After setting up the button, setup debouncer
-    button.attach(BUTTON_PIN);
-    button.interval(5);
-
     // Make sure relays are off when starting up
     digitalWrite(RELAY_PIN, RELAY_OFF);
     // Then set relay pins in output mode
     pinMode(RELAY_PIN, OUTPUT);   
 
     // Set relay to last known state (using eeprom storage) 
-    state = loadState(CHILD_ID);
-    digitalWrite(RELAY_PIN, state?RELAY_ON:RELAY_OFF);
+    relayState = loadState(RELAY_ID);
+    digitalWrite(RELAY_PIN, relayState?RELAY_ON:RELAY_OFF);
 
 
     sensors.begin(); //Activation des capteurs
@@ -86,51 +80,49 @@ void presentation()
 void loop() 
 {
     
-    button.update();
     // Get the update value
-    int currentButtonState = button.read();
-    if (currentButtonState != previousButtonState) {
-        send(msgRelay.set(state?false:true), true); // Send new state and request ack back
+    int readButtonImpulsion = digitalRead(BUTTON_PIN);  
+    if (readButtonImpulsion == 0 )
+    {
+        buttonState = !buttonState;
+        if(buttonState==true && relayState ==false) 
+        {
+            send(msgRelay.set(true), true); // Send new state and request ack back
+        }
     }
-    previousButtonState = currentButtonState;
-
     sensors.requestTemperatures(); //Demande la température aux capteurs
-    Temp_tmp=sensor.getTempCByIndex(0);             // 7 Récupération de la température en celsius à l'index 0
-    if(millis() - prev_all_millis > ALL_TEMPO_TIME) 
+    Temp_tmp=sensors.getTempCByIndex(0);             // 7 Récupération de la température en celsius à l'index 0
+    if(millis() - prev_millis > TEMPO_TIME) 
     { 
         if (Temp_tmp>0)                     //7 pour éviter les sauts de valeur négative de la sonde dallas (genre artefact)
         {
             Temp_good=Temp_tmp; //7 si la temp >0 on récupère la valeur de la température sinon laisser l'artefact de coté)
             send(msgTemp.set(Temp_good, 1));
         }
-        prev_all_millis = millis();
+        prev_millis = millis();
+        
+
+        if(buttonState==false)
+        {
+            if(relayState==false && Temp_good>=50)
+            {
+                send(msgRelay.set(true), true);
+            }  
+            if(relayState==true && Temp_good<50)
+            {
+                send(msgRelay.set(false), true);
+            }  
+        } 
     }
     
-
-    if(currentButtonState==HIGH)
-    {
-        if(state==false && Temp_good>=50)
-        {
-            send(msgRelay.set(true), true);
-        }  
-        if(state==true && Temp_good<50)
-        {
-            send(msgRelay.set(false), true);
-        }  
-    } 
 } 
 
 void receive(const MyMessage &message) {
   if (message.type == V_LIGHT) {
      // Change relay state
-     state = message.getBool();
-     digitalWrite(RELAY_PIN, state?RELAY_ON:RELAY_OFF);
+     relayState = message.getBool();
+     digitalWrite(RELAY_PIN, relayState?RELAY_ON:RELAY_OFF);
      // Store state in eeprom
-     saveState(RELAY_ID, state);
+     saveState(RELAY_ID, relayState);
    } 
 }
-
-
-
-
-
